@@ -26,6 +26,8 @@ contract ExerciseC6C {
     address private contractOwner;              // Account used to deploy contract
     mapping(string => Profile) employees;      // Mapping for storing employees
 
+    mapping(address => uint256) private authorizedContracts;
+
     /********************************************************************************************/
     /*                                       EVENT DEFINITIONS                                  */
     /********************************************************************************************/
@@ -36,10 +38,8 @@ contract ExerciseC6C {
     * @dev Constructor
     *      The deploying account becomes contractOwner
     */
-    constructor
-                                (
-                                ) 
-                                public 
+    constructor()
+    public
     {
         contractOwner = msg.sender;
     }
@@ -60,6 +60,12 @@ contract ExerciseC6C {
         _;
     }
 
+    modifier isCallerAuthorized()
+    {
+        require(authorizedContracts[msg.sender] == 1, "Caller is not authorized");
+        _;
+    }
+
     /********************************************************************************************/
     /*                                       UTILITY FUNCTIONS                                  */
     /********************************************************************************************/
@@ -69,13 +75,11 @@ contract ExerciseC6C {
     *
     * @return A bool that indicates if the employee is registered
     */   
-    function isEmployeeRegistered
-                            (
-                                string id
-                            )
-                            external
-                            view
-                            returns(bool)
+    function isEmployeeRegistered (string id)
+    external
+    view
+    isCallerAuthorized
+    returns(bool)
     {
         return employees[id].isRegistered;
     }
@@ -84,14 +88,10 @@ contract ExerciseC6C {
     /*                                     SMART CONTRACT FUNCTIONS                             */
     /********************************************************************************************/
 
-    function registerEmployee
-                                (
-                                    string id,
-                                    bool isAdmin,
-                                    address wallet
-                                )
-                                external
-                                requireContractOwner
+    function registerEmployee (string id, bool isAdmin, address wallet)
+    external
+    requireContractOwner
+    isCallerAuthorized
     {
         require(!employees[id].isRegistered, "Employee is already registered.");
 
@@ -105,27 +105,21 @@ contract ExerciseC6C {
                                 });
     }
 
-    function getEmployeeBonus
-                            (
-                                string id
-                            )
-                            external
-                            view
-                            requireContractOwner
-                            returns(uint256)
+    function getEmployeeBonus (string id)
+    external
+    view
+    requireContractOwner
+    isCallerAuthorized
+    returns(uint256)
     {
         return employees[id].bonus;
     }
 
-    function updateEmployee
-                                (
-                                    string id,
-                                    uint256 sales,
-                                    uint256 bonus
-
-                                )
-                                internal
-                                requireContractOwner
+    function updateEmployee (string id, uint256 sales, uint256 bonus)
+//    internal
+    external
+//    requireContractOwner
+    isCallerAuthorized
     {
         require(employees[id].isRegistered, "Employee is not registered.");
 
@@ -134,40 +128,19 @@ contract ExerciseC6C {
 
     }
 
-    function calculateBonus
-                            (
-                                uint256 sales
-                            )
-                            internal
-                            view
-                            requireContractOwner
-                            returns(uint256)
+    function authorizedContract(address dataContract)
+    external
+    requireContractOwner
+    isCallerAuthorized
     {
-        if (sales < 100) {
-            return sales.mul(5).div(100);
-        }
-        else if (sales < 500) {
-            return sales.mul(7).div(100);
-        }
-        else {
-            return sales.mul(10).div(100);
-        }
+        authorizedContracts[dataContract] = 1;
     }
 
-    function addSale
-                                (
-                                    string id,
-                                    uint256 amount
-                                )
-                                external
-                                requireContractOwner
+    function deauthorizedContract(address dataContract)
+    external
+    requireContractOwner
+    isCallerAuthorized
     {
-        updateEmployee(
-                        id,
-                        amount,
-                        calculateBonus(amount)
-        );
+        delete authorizedContracts[dataContract];
     }
-
-
 }
