@@ -57,11 +57,8 @@ contract ExerciseC6D {
 
 
 
-
-    constructor
-                (
-                )
-                public 
+    constructor()
+    public
     {
         contractOwner = msg.sender;
     }
@@ -76,6 +73,12 @@ contract ExerciseC6D {
         _;
     }
 
+    modifier enoughFee()
+    {
+        require(msg.value >= REGISTRATION_FEE, "Insufficient fee");
+        _;
+    }
+
     /********************************************************************************************/
     /*                                     SMART CONTRACT FUNCTIONS                             */
     /********************************************************************************************/
@@ -85,30 +88,23 @@ contract ExerciseC6D {
     // STAGE ONE: ORACLES REGISTER WITH THE SMART CONTRACT
 
     // Register an oracle with the contract
-    function registerOracle
-                            (
-                            )
-                            external
-                            payable
+    function registerOracle ()
+    external
+    payable
+    // CODE EXERCISE 1: Require registration fee
+    enoughFee
     {
-        // CODE EXERCISE 1: Require registration fee
-        /* Enter code here */
-
         // CODE EXERCISE 1: Generate three random indexes (range 0-9) using generateIndexes for the calling oracle
-        /* Enter code here */
-
         // CODE EXERCISE 1: Assign the indexes to the oracle and save to the contract state
-        /* Enter code here */
+        oracles[msg.sender] = generateIndexes(msg.sender);
+
     }
 
-    function getOracle
-                        (
-                            address account
-                        )
-                        external
-                        view
-                        requireContractOwner
-                        returns(uint8[3])
+    function getOracle (address account)
+    external
+    view
+    requireContractOwner
+    returns(uint8[3])
     {
         return oracles[account];
     }
@@ -129,17 +125,14 @@ contract ExerciseC6D {
 
 
     // Generate a request
-    function fetchFlightStatus
-                        (
-                            string flight,
-                            uint256 timestamp                            
-                        )
-                        external
+    function fetchFlightStatus (string flight,uint256 timestamp)
+    external
     {
         // Generate a number between 0 - 9 to determine which oracles may respond
 
         // CODE EXERCISE 2: Replace the hard-coded value of index with a random index based on the calling account
-        uint8 index = 0;  /* Replace code here */
+        // Este indice va a determinar que Oracles responden
+        uint8 index = getRandomIndex(msg.sender);  /* Replace code here */
 
 
         // Generate a unique key for storing the request
@@ -151,6 +144,7 @@ contract ExerciseC6D {
 
         // CODE EXERCISE 2: Notify oracles that match the index value that they need to fetch flight status
         /* Enter code here */
+        emit OracleRequest(index, flight, timestamp);
 
     }
 
@@ -166,20 +160,16 @@ contract ExerciseC6D {
     // For the response to be accepted, there must be a pending request that is open
     // and matches one of the three Indexes randomly assigned to the oracle at the
     // time of registration (i.e. uninvited oracles are not welcome)
-    function submitOracleResponse
-                        (
-                            uint8 index,
-                            string flight,
-                            uint256 timestamp,
-                            uint8 statusId
-                        )
-                        external
+    function submitOracleResponse (uint8 index,string flight,uint256 timestamp,uint8 statusId)
+    external
     {
         require((oracles[msg.sender][0] == index) || (oracles[msg.sender][1] == index) || (oracles[msg.sender][2] == index), "Index does not match oracle request");
 
 
         // CODE EXERCISE 3: Require that the response is being submitted for a request that is still open
-        bytes32 key = 0; /* Replace 0 with code to generate a key using index, flight and timestamp */
+        /* Replace 0 with code to generate a key using index, flight and timestamp */
+        bytes32 key = keccak256(abi.encodePacked(index, flight, timestamp));
+        require(oracleResponses[key].isOpen, "flight or timestamp do not match oracle request");
 
 
         oracleResponses[key].responses[statusId].push(msg.sender);
@@ -190,9 +180,12 @@ contract ExerciseC6D {
 
             // CODE EXERCISE 3: Prevent any more responses since MIN_RESPONSE threshold has been reached
             /* Enter code here */
+//            oracleResponses[key].isOpen = false;
+
 
             // CODE EXERCISE 3: Announce to the world that verified flight status information is available
             /* Enter code here */
+            emit FlightStatusInfo(flight, timestamp, statusId, true);
 
             // Save the flight information for posterity
             bytes32 flightKey = keccak256(abi.encodePacked(flight, timestamp));
@@ -202,6 +195,7 @@ contract ExerciseC6D {
 
             // CODE EXERCISE 3: Announce to the world that verified flight status information is available
             /* Enter code here */
+            emit FlightStatusInfo(flight, timestamp, statusId, false);
         }
     }
 
@@ -213,29 +207,22 @@ contract ExerciseC6D {
     /************************************ BEGIN: Utility Functions ************************************/
 
     // Query the status of any flight
-    function viewFlightStatus
-                            (
-                                string flight,
-                                uint256 timestamp
-                            )
-                            external
-                            view
-                            returns(uint8)
+    function viewFlightStatus(string flight,uint256 timestamp)
+    external
+    view
+    returns(uint8)
     {
-            require(flights[flightKey].hasStatus, "Flight status not available");
+        require(flights[flightKey].hasStatus, "Flight status not available");
 
-            bytes32 flightKey = keccak256(abi.encodePacked(flight, timestamp));
-            return flights[flightKey].status;
+        bytes32 flightKey = keccak256(abi.encodePacked(flight, timestamp));
+        return flights[flightKey].status;
     }
 
 
     // Returns array of three non-duplicating integers from 0-9
-    function generateIndexes
-                            (                       
-                                address account         
-                            )
-                            internal
-                            returns(uint8[3])
+    function generateIndexes (address account)
+    internal
+    returns(uint8[3])
     {
         uint8[3] memory indexes;
         indexes[0] = getRandomIndex(account);
@@ -254,12 +241,9 @@ contract ExerciseC6D {
     }
 
     // Returns array of three non-duplicating integers from 0-9
-    function getRandomIndex
-                            (
-                                address account
-                            )
-                            internal
-                            returns (uint8)
+    function getRandomIndex(address account)
+    internal
+    returns (uint8)
     {
         uint8 maxValue = 10;
 
